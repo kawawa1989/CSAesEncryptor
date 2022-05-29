@@ -1,8 +1,9 @@
+using System;
 using UnityEngine;
 
 namespace CsAes
 {
-    public static class AesUtility
+    public class AesUtility : IDisposable
     {
         public static readonly uint[] RCon = new uint[]
         {
@@ -1358,27 +1359,44 @@ namespace CsAes
             return ((a << 8) | (a >> 24)) & byte.MaxValue;
         }
 
-        static AesUtility()
+        private readonly ComputeBuffer m_t0 = new(256, sizeof(uint));
+        private readonly ComputeBuffer m_t1 = new(256, sizeof(uint));
+        private readonly ComputeBuffer m_t2 = new(256, sizeof(uint));
+        private readonly ComputeBuffer m_t3 = new(256, sizeof(uint));
+        private readonly ComputeBuffer m_sBox = new(256, sizeof(uint));
+        private bool m_disposed;
+
+        public AesUtility()
         {
-            var t0 = new ComputeBuffer(256, sizeof(uint));
-            t0.SetData(T0);
-            Shader.SetGlobalBuffer(Shader.PropertyToID("T0"), t0);
+            m_t0.SetData(T0);
+            Shader.SetGlobalBuffer(Shader.PropertyToID("T0"), m_t0);
 
-            var t1 = new ComputeBuffer(256, sizeof(uint));
-            t1.SetData(T1);
-            Shader.SetGlobalBuffer(Shader.PropertyToID("T1"), t1);
+            m_t1.SetData(T1);
+            Shader.SetGlobalBuffer(Shader.PropertyToID("T1"), m_t1);
 
-            var t2 = new ComputeBuffer(256, sizeof(uint));
-            t2.SetData(T2);
-            Shader.SetGlobalBuffer(Shader.PropertyToID("T2"), t2);
+            m_t2.SetData(T2);
+            Shader.SetGlobalBuffer(Shader.PropertyToID("T2"), m_t2);
 
-            var t3 = new ComputeBuffer(256, sizeof(uint));
-            t3.SetData(T3);
-            Shader.SetGlobalBuffer(Shader.PropertyToID("T3"), t3);
+            m_t3.SetData(T3);
+            Shader.SetGlobalBuffer(Shader.PropertyToID("T3"), m_t3);
 
-            var sBox = new ComputeBuffer(256, sizeof(uint));
-            sBox.SetData(SBox);
-            Shader.SetGlobalBuffer(Shader.PropertyToID("sBox"), sBox);
+            m_sBox.SetData(SBox);
+            Shader.SetGlobalBuffer(Shader.PropertyToID("sBox"), m_sBox);
+        }
+
+        public void Dispose()
+        {
+            if (m_disposed)
+            {
+                return;
+            }
+
+            m_disposed = true;
+            m_t0.Dispose();
+            m_t1.Dispose();
+            m_t2.Dispose();
+            m_t3.Dispose();
+            m_sBox.Dispose();
         }
     }
 }

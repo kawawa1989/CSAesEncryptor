@@ -207,6 +207,7 @@ namespace CsAes
         [MenuItem("Aes/ComputeShader/Test Decrypt")]
         public static void TestDecrypt()
         {
+            using var utility = new AesUtility();
             byte[] bytes = File.ReadAllBytes("ExampleFile/encrypted.enc");
             NativeArray<byte> array = new(bytes, Allocator.Persistent);
             using (AesEncryptorUseComputeShader instance = new())
