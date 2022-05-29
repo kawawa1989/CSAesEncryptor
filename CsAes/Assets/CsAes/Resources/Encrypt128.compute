@@ -1,0 +1,160 @@
+#pragma kernel Cipher
+
+#define BYTE(x, y) (x >> (y * 8) & 0xFF)
+#define CONV_BYTE(x) (x & 0xFF)
+#define BYTE_TO_INT(a, b, c, d) (a | b << 8 | c << 16 | d << 24)
+
+StructuredBuffer<uint> T0;
+StructuredBuffer<uint> T1;
+StructuredBuffer<uint> T2;
+StructuredBuffer<uint> T3;
+StructuredBuffer<uint> sBox;
+
+// 入力データ
+RWStructuredBuffer<uint> ekey;         // 各ラウンドで使用される鍵
+RWStructuredBuffer<uint> work;         // 入力/出力データ
+RWStructuredBuffer<uint> nonce;        // nonce 値
+RWStructuredBuffer<uint> counterBlock; // nonceを暗号化するカウンターブロック
+uint blockIndex;                       // ブロック番号
+int BufferSizeOneThreadInt;            // 1スレッドが処理するデータ数(int型換算)
+
+void CipherInternal(const uint bufferIndex)
+{
+    const uint index1 = 40;
+    // 初期ラウンド
+    const uint index2 = counterBlock[0] ^ ekey[0];
+    const uint index3 = counterBlock[1] ^ ekey[1];
+    const uint index4 = counterBlock[2] ^ ekey[2];
+    const uint index5 = counterBlock[3] ^ ekey[3];
+
+    // ラウンド2
+    const uint index6 = T0[ (index2 >> 24)] ^ T1[((index3 >> 16) & 0xFF)] ^ T2[((index4 >> 8) & 0xFF)] ^ T3[index5] ^ ekey[4];
+    const uint index7 = T0[ (index3 >> 24)] ^ T1[((index4 >> 16) & 0xFF)] ^ T2[((index5 >> 8) & 0xFF)] ^ T3[index2] ^ ekey[5];
+    const uint index8 = T0[ (index4 >> 24)] ^ T1[((index5 >> 16) & 0xFF)] ^ T2[((index2 >> 8) & 0xFF)] ^ T3[index3] ^ ekey[6];
+    const uint index9 = T0[ (index5 >> 24)] ^ T1[((index2 >> 16) & 0xFF)] ^ T2[((index3 >> 8) & 0xFF)] ^ T3[index4] ^ ekey[7];
+
+    // ラウンド3
+    const uint index10 = T0[ (index6 >> 24)] ^ T1[((index7 >> 16) & 0xFF)] ^ T2[((index8 >> 8) & 0xFF)] ^ T3[index9] ^ ekey[8];
+    const uint index11 = T0[ (index7 >> 24)] ^ T1[((index8 >> 16) & 0xFF)] ^ T2[((index9 >> 8) & 0xFF)] ^ T3[index6] ^ ekey[9];
+    const uint index12 = T0[ (index8 >> 24)] ^ T1[((index9 >> 16) & 0xFF)] ^ T2[((index6 >> 8) & 0xFF)] ^ T3[index7] ^ ekey[10];
+    const uint index13 = T0[ (index9 >> 24)] ^ T1[((index6 >> 16) & 0xFF)] ^ T2[((index7 >> 8) & 0xFF)] ^ T3[index8] ^ ekey[11];
+
+    // ラウンド4
+    const uint index14 = T0[ (index10 >> 24)] ^ T1[((index11 >> 16) & 0xFF)] ^ T2[((index12 >> 8) & 0xFF)] ^ T3[index13] ^ ekey[12];
+    const uint index15 = T0[ (index11 >> 24)] ^ T1[((index12 >> 16) & 0xFF)] ^ T2[((index13 >> 8) & 0xFF)] ^ T3[index10] ^ ekey[13];
+    const uint index16 = T0[ (index12 >> 24)] ^ T1[((index13 >> 16) & 0xFF)] ^ T2[((index10 >> 8) & 0xFF)] ^ T3[index11] ^ ekey[14];
+    const uint index17 = T0[ (index13 >> 24)] ^ T1[((index10 >> 16) & 0xFF)] ^ T2[((index11 >> 8) & 0xFF)] ^ T3[index12] ^ ekey[15];
+
+    // ラウンド5
+    const uint index18 = T0[ (index14 >> 24)] ^ T1[((index15 >> 16) & 0xFF)] ^ T2[((index16 >> 8) & 0xFF)] ^ T3[index17] ^ ekey[16];
+    const uint index19 = T0[ (index15 >> 24)] ^ T1[((index16 >> 16) & 0xFF)] ^ T2[((index17 >> 8) & 0xFF)] ^ T3[index14] ^ ekey[17];
+    const uint index20 = T0[ (index16 >> 24)] ^ T1[((index17 >> 16) & 0xFF)] ^ T2[((index14 >> 8) & 0xFF)] ^ T3[index15] ^ ekey[18];
+    const uint index21 = T0[ (index17 >> 24)] ^ T1[((index14 >> 16) & 0xFF)] ^ T2[((index15 >> 8) & 0xFF)] ^ T3[index16] ^ ekey[19];
+
+    // ラウンド6
+    const uint index22 = T0[ (index18 >> 24)] ^ T1[((index19 >> 16) & 0xFF)] ^ T2[((index20 >> 8) & 0xFF)] ^ T3[index21] ^ ekey[20];
+    const uint index23 = T0[ (index19 >> 24)] ^ T1[((index20 >> 16) & 0xFF)] ^ T2[((index21 >> 8) & 0xFF)] ^ T3[index18] ^ ekey[21];
+    const uint index24 = T0[ (index20 >> 24)] ^ T1[((index21 >> 16) & 0xFF)] ^ T2[((index18 >> 8) & 0xFF)] ^ T3[index19] ^ ekey[22];
+    const uint index25 = T0[ (index21 >> 24)] ^ T1[((index18 >> 16) & 0xFF)] ^ T2[((index19 >> 8) & 0xFF)] ^ T3[index20] ^ ekey[23];
+
+    // ラウンド7
+    const uint index26 = T0[ (index22 >> 24)] ^ T1[((index23 >> 16) & 0xFF)] ^ T2[((index24 >> 8) & 0xFF)] ^ T3[index25] ^ ekey[24];
+    const uint index27 = T0[ (index23 >> 24)] ^ T1[((index24 >> 16) & 0xFF)] ^ T2[((index25 >> 8) & 0xFF)] ^ T3[index22] ^ ekey[25];
+    const uint index28 = T0[ (index24 >> 24)] ^ T1[((index25 >> 16) & 0xFF)] ^ T2[((index22 >> 8) & 0xFF)] ^ T3[index23] ^ ekey[26];
+    const uint index29 = T0[ (index25 >> 24)] ^ T1[((index22 >> 16) & 0xFF)] ^ T2[((index23 >> 8) & 0xFF)] ^ T3[index24] ^ ekey[27];
+
+    // ラウンド8
+    const uint index30 = T0[ (index26 >> 24)] ^ T1[((index27 >> 16) & 0xFF)] ^ T2[((index28 >> 8) & 0xFF)] ^ T3[index29] ^ ekey[28];
+    const uint index31 = T0[ (index27 >> 24)] ^ T1[((index28 >> 16) & 0xFF)] ^ T2[((index29 >> 8) & 0xFF)] ^ T3[index26] ^ ekey[29];
+    const uint index32 = T0[ (index28 >> 24)] ^ T1[((index29 >> 16) & 0xFF)] ^ T2[((index26 >> 8) & 0xFF)] ^ T3[index27] ^ ekey[30];
+    const uint index33 = T0[ (index29 >> 24)] ^ T1[((index26 >> 16) & 0xFF)] ^ T2[((index27 >> 8) & 0xFF)] ^ T3[index28] ^ ekey[31];
+
+    // ラウンド9
+    const uint index34 = T0[ (index30 >> 24)] ^ T1[((index31 >> 16) & 0xFF)] ^ T2[((index32 >> 8) & 0xFF)] ^ T3[index33] ^ ekey[32];
+    const uint index35 = T0[ (index31 >> 24)] ^ T1[((index32 >> 16) & 0xFF)] ^ T2[((index33 >> 8) & 0xFF)] ^ T3[index30] ^ ekey[33];
+    const uint index36 = T0[ (index32 >> 24)] ^ T1[((index33 >> 16) & 0xFF)] ^ T2[((index30 >> 8) & 0xFF)] ^ T3[index31] ^ ekey[34];
+    const uint index37 = T0[ (index33 >> 24)] ^ T1[((index30 >> 16) & 0xFF)] ^ T2[((index31 >> 8) & 0xFF)] ^ T3[index32] ^ ekey[35];
+
+    // ラウンド10
+    const uint index38 = T0[ (index34 >> 24)] ^ T1[((index35 >> 16) & 0xFF)] ^ T2[((index36 >> 8) & 0xFF)] ^ T3[index37] ^ ekey[36];
+    const uint index39 = T0[ (index35 >> 24)] ^ T1[((index36 >> 16) & 0xFF)] ^ T2[((index37 >> 8) & 0xFF)] ^ T3[index34] ^ ekey[37];
+    const uint index40 = T0[ (index36 >> 24)] ^ T1[((index37 >> 16) & 0xFF)] ^ T2[((index34 >> 8) & 0xFF)] ^ T3[index35] ^ ekey[38];
+    const uint index41 = T0[ (index37 >> 24)] ^ T1[((index34 >> 16) & 0xFF)] ^ T2[((index35 >> 8) & 0xFF)] ^ T3[index36] ^ ekey[39];
+
+    // 0, 1, 2, 3
+    const uint _0 = sBox[BYTE(index38, 3)] ^ BYTE(ekey[index1], 3);
+    const uint _1 = sBox[BYTE(index39, 2)] ^ BYTE(ekey[index1], 2);
+    const uint _2 = sBox[BYTE(index40, 1)] ^ BYTE(ekey[index1], 1);
+    const int num1 = sBox[BYTE(index41, 0)];
+    const int index50 = index1;
+    const int index51 = index50 + 1;
+    const int num2 = CONV_BYTE(ekey[index50]);
+    const int num3 = CONV_BYTE(num1 ^ num2);
+    const uint _3 = num3;
+    counterBlock[0] = BYTE_TO_INT(_0, _1, _2, _3);
+
+    // 4, 5, 6, 7
+    const uint _4 = sBox[BYTE(index39, 3)] ^ BYTE(ekey[index51], 3);
+    const uint _5 = sBox[BYTE(index40, 2)] ^ BYTE(ekey[index51], 2);
+    const uint _6 = sBox[BYTE(index41, 1)] ^ BYTE(ekey[index51], 1);
+    const int num4 = sBox[BYTE(index38, 0)];
+    const int index52 = index51;
+    const int index53 = index52 + 1;
+    const int num5 = CONV_BYTE(ekey[index52]);
+    const int num6 = CONV_BYTE(num4 ^ num5);
+    const uint _7 = num6;
+    counterBlock[1] = BYTE_TO_INT(_4, _5, _6, _7);
+
+    // 8, 9, 10, 11
+    const uint _8  = sBox[BYTE(index40, 3)] ^ BYTE(ekey[index53], 3);
+    const uint _9  = sBox[BYTE(index41, 2)] ^ BYTE(ekey[index53], 2);
+    const uint _10 = sBox[BYTE(index38, 1)] ^ BYTE(ekey[index53], 1);
+    const int num7 = sBox[BYTE(index39, 0)];
+    const int index54 = index53;
+    const int index55 = index54 + 1;
+    const int num8 = CONV_BYTE(ekey[index54]);
+    const int num9 = CONV_BYTE(num7 ^ num8);
+    const uint _11 = num9;
+    counterBlock[2] = BYTE_TO_INT(_8, _9, _10, _11);
+
+    //12, 13, 14, 15
+    const uint _12 = sBox[BYTE(index41, 3)] ^ BYTE(ekey[index55], 3);
+    const uint _13 = sBox[BYTE(index38, 2)] ^ BYTE(ekey[index55], 2);
+    const uint _14 = sBox[BYTE(index39, 1)] ^ BYTE(ekey[index55], 1);
+    const int num10 = sBox[BYTE(index40, 0)];
+    const int index56 = index55;
+    const int num11 = index56 + 1;
+    const int num12 = CONV_BYTE(ekey[index56]);
+    const int num13 = CONV_BYTE(num10 ^ num12);
+    const uint _15 = num13;
+    counterBlock[3] = BYTE_TO_INT(_12, _13, _14, _15);
+
+    work[bufferIndex+0] ^= counterBlock[0];
+    work[bufferIndex+1] ^= counterBlock[1];
+    work[bufferIndex+2] ^= counterBlock[2];
+    work[bufferIndex+3] ^= counterBlock[3];
+}
+
+void GenerateNonce(const uint index)
+{
+    counterBlock[0] = blockIndex + index;
+    counterBlock[1] = nonce[0];
+    counterBlock[2] = nonce[1];
+    counterBlock[3] = nonce[2];
+}
+
+[numthreads(32, 1, 1)]
+void Cipher (uint id : SV_DispatchThreadID)
+{
+    // 1スレッドにつき配列要素0~2047まで処理する
+    // byte配列をuint型に収めるので、4 × 2048 = 8192 バイト
+    const uint bufferSize = BufferSizeOneThreadInt;
+    // 512回処理する
+    const uint loopCount = bufferSize / 4;
+    for(int i = 0; i < loopCount; ++i)
+    {
+        const uint index = (id * bufferSize) + (i * 4);
+        GenerateNonce((id * bufferSize) + i);
+        CipherInternal(index);
+    }
+}
